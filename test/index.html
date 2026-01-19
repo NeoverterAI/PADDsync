@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PADDsync Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        #game-container {
+            border: 2px solid #333;
+            margin: 20px 0;
+            display: inline-block;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .test-results {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .test-item {
+            padding: 5px 0;
+        }
+        .test-pass {
+            color: #28a745;
+        }
+        .test-fail {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>PADDsync Test Page</h1>
+    <div id="status" class="status info">Initializing PADDsync...</div>
+    <div id="game-container"></div>
+    <div class="test-results">
+        <h2>Test Results:</h2>
+        <div id="test-results"></div>
+    </div>
+
+    <script src="../build/paddsync.js"></script>
+    <script>
+        const statusEl = document.getElementById('status');
+        const testResultsEl = document.getElementById('test-results');
+        const tests = [];
+
+        function addTest(name, passed, message) {
+            tests.push({ name, passed, message });
+            const testItem = document.createElement('div');
+            testItem.className = 'test-item';
+            testItem.innerHTML = `
+                <span class="${passed ? 'test-pass' : 'test-fail'}">
+                    ${passed ? '✓' : '✗'} ${name}
+                </span>
+                ${message ? `: ${message}` : ''}
+            `;
+            testResultsEl.appendChild(testItem);
+        }
+
+        // Test 1: Check global namespace
+        console.log('Test 1: Checking PADDsync namespace...');
+        if (typeof PADDsync === 'undefined') {
+            statusEl.className = 'status error';
+            statusEl.textContent = 'FAIL: PADDsync namespace not found';
+            addTest('PADDsync namespace exists', false, 'PADDsync is undefined');
+            throw new Error('PADDsync not defined');
+        } else {
+            addTest('PADDsync namespace exists', true, 'window.PADDsync is defined');
+        }
+
+        // Test 2: Check old namespace is gone
+        console.log('Test 2: Checking Phaser namespace removed...');
+        if (typeof Phaser !== 'undefined') {
+            addTest('Phaser namespace removed', false, 'Phaser namespace still exists');
+            console.warn('Warning: Phaser namespace still exists');
+        } else {
+            addTest('Phaser namespace removed', true, 'Old namespace not present');
+        }
+
+        // Test 3: Check core classes
+        console.log('Test 3: Checking core PADDsync classes...');
+        const coreClasses = ['Game', 'Scene', 'Math', 'Geom', 'Physics', 'Loader', 'Input'];
+        coreClasses.forEach(className => {
+            if (PADDsync[className]) {
+                addTest(`PADDsync.${className} exists`, true);
+            } else {
+                addTest(`PADDsync.${className} exists`, false, 'Class not found');
+            }
+        });
+
+        // Test 4: Check constants
+        console.log('Test 4: Checking PADDsync constants...');
+        const constants = ['AUTO', 'CANVAS', 'WEBGL', 'VERSION'];
+        constants.forEach(constant => {
+            if (typeof PADDsync[constant] !== 'undefined') {
+                addTest(`PADDsync.${constant} defined`, true, `Value: ${PADDsync[constant]}`);
+            } else {
+                addTest(`PADDsync.${constant} defined`, false);
+            }
+        });
+
+        // Test 5: Create a game instance
+        console.log('Test 5: Creating PADDsync game instance...');
+        try {
+            const config = {
+                type: PADDsync.AUTO,
+                width: 800,
+                height: 600,
+                parent: 'game-container',
+                backgroundColor: '#2d2d2d',
+                scene: {
+                    create: function() {
+                        // Add test text
+                        const titleText = this.add.text(400, 200, 'PADDsync Works!', {
+                            fontSize: '64px',
+                            color: '#00ff00',
+                            fontStyle: 'bold'
+                        }).setOrigin(0.5);
+
+                        this.add.text(400, 300, 'Framework Successfully Rebranded', {
+                            fontSize: '24px',
+                            color: '#ffffff'
+                        }).setOrigin(0.5);
+
+                        this.add.text(400, 350, `Version: ${PADDsync.VERSION}`, {
+                            fontSize: '18px',
+                            color: '#aaaaaa'
+                        }).setOrigin(0.5);
+
+                        this.add.text(400, 380, `Renderer: ${this.game.renderer.type === PADDsync.WEBGL ? 'WebGL' : 'Canvas'}`, {
+                            fontSize: '18px',
+                            color: '#aaaaaa'
+                        }).setOrigin(0.5);
+
+                        this.add.text(400, 450, 'Namespace: PADDsync', {
+                            fontSize: '20px',
+                            color: '#00aaff'
+                        }).setOrigin(0.5);
+
+                        // Add a simple animation
+                        this.tweens.add({
+                            targets: titleText,
+                            scaleX: 1.1,
+                            scaleY: 1.1,
+                            duration: 1000,
+                            yoyo: true,
+                            repeat: -1,
+                            ease: 'Sine.easeInOut'
+                        });
+
+                        // Update status
+                        statusEl.className = 'status success';
+                        statusEl.textContent = '✓ SUCCESS: PADDsync initialized and running!';
+                        addTest('Game instance created', true, 'Scene rendered successfully');
+                        addTest('Text rendering', true, 'Multiple text objects created');
+                        addTest('Tween animation', true, 'Animation running');
+
+                        console.log('PADDsync game created successfully!');
+                        console.log('Game instance:', this.game);
+                    }
+                }
+            };
+
+            const game = new PADDsync.Game(config);
+            addTest('PADDsync.Game constructor', true, 'Game object created');
+
+        } catch (error) {
+            statusEl.className = 'status error';
+            statusEl.textContent = 'FAIL: ' + error.message;
+            addTest('Game instance created', false, error.message);
+            console.error('Error creating game:', error);
+        }
+
+        // Summary
+        setTimeout(() => {
+            const passed = tests.filter(t => t.passed).length;
+            const total = tests.length;
+            const summaryDiv = document.createElement('div');
+            summaryDiv.style.marginTop = '15px';
+            summaryDiv.style.fontSize = '18px';
+            summaryDiv.style.fontWeight = 'bold';
+            summaryDiv.style.padding = '10px';
+            summaryDiv.style.borderRadius = '4px';
+
+            if (passed === total) {
+                summaryDiv.style.backgroundColor = '#d4edda';
+                summaryDiv.style.color = '#155724';
+                summaryDiv.textContent = `All ${total} tests passed! ✓`;
+            } else {
+                summaryDiv.style.backgroundColor = '#fff3cd';
+                summaryDiv.style.color = '#856404';
+                summaryDiv.textContent = `${passed}/${total} tests passed`;
+            }
+
+            testResultsEl.appendChild(summaryDiv);
+        }, 100);
+    </script>
+</body>
+</html>

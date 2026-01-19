@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PADDsync - Basic Game Example</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a2e;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: #eee;
+            margin: 20px 0;
+        }
+
+        #game-container {
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .info {
+            color: #aaa;
+            margin: 20px 0;
+            max-width: 800px;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .controls {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            color: #eee;
+            margin: 20px 0;
+            max-width: 800px;
+        }
+
+        .controls h3 {
+            margin-top: 0;
+            color: #0f3460;
+        }
+
+        .controls ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .controls li {
+            padding: 5px 0;
+        }
+
+        .controls kbd {
+            background: #0f3460;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>PADDsync Basic Game Example</h1>
+
+    <div class="info">
+        This is a simple game demonstrating PADDsync's core features including sprites, physics, input, and animations.
+    </div>
+
+    <div id="game-container"></div>
+
+    <div class="controls">
+        <h3>Controls</h3>
+        <ul>
+            <li><kbd>←</kbd> <kbd>→</kbd> - Move left/right</li>
+            <li><kbd>↑</kbd> or <kbd>SPACE</kbd> - Jump</li>
+            <li><kbd>Click</kbd> on the game area to spawn particles</li>
+        </ul>
+    </div>
+
+    <!-- Load PADDsync from the dist folder -->
+    <script src="../../dist/paddsync.js"></script>
+
+    <!-- Game Code -->
+    <script>
+        // Game configuration
+        const config = {
+            type: PADDsync.AUTO,
+            width: 800,
+            height: 600,
+            parent: 'game-container',
+            backgroundColor: '#2d3561',
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 800 },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+
+        // Game variables
+        let player;
+        let platforms;
+        let cursors;
+        let stars;
+        let score = 0;
+        let scoreText;
+        let particles;
+
+        // Create the game instance
+        const game = new PADDsync.Game(config);
+
+        function preload() {
+            // Since we don't have assets, we'll create them programmatically
+            // Create a simple player sprite using graphics
+            const graphics = this.add.graphics();
+            graphics.fillStyle(0x00ff00, 1);
+            graphics.fillRect(0, 0, 32, 48);
+            graphics.generateTexture('player', 32, 48);
+            graphics.destroy();
+
+            // Create a platform
+            const platformGraphics = this.add.graphics();
+            platformGraphics.fillStyle(0x666666, 1);
+            platformGraphics.fillRect(0, 0, 400, 32);
+            platformGraphics.generateTexture('platform', 400, 32);
+            platformGraphics.destroy();
+
+            // Create a small platform
+            const smallPlatformGraphics = this.add.graphics();
+            smallPlatformGraphics.fillStyle(0x888888, 1);
+            smallPlatformGraphics.fillRect(0, 0, 200, 32);
+            smallPlatformGraphics.generateTexture('smallPlatform', 200, 32);
+            smallPlatformGraphics.destroy();
+
+            // Create a star
+            const starGraphics = this.add.graphics();
+            starGraphics.fillStyle(0xffff00, 1);
+            starGraphics.fillCircle(16, 16, 12);
+            starGraphics.generateTexture('star', 32, 32);
+            starGraphics.destroy();
+
+            // Create particle
+            const particleGraphics = this.add.graphics();
+            particleGraphics.fillStyle(0xff6b6b, 1);
+            particleGraphics.fillCircle(4, 4, 4);
+            particleGraphics.generateTexture('particle', 8, 8);
+            particleGraphics.destroy();
+        }
+
+        function create() {
+            // Display version info
+            this.add.text(16, 16, 'PADDsync v' + PADDsync.VERSION, {
+                fontSize: '16px',
+                fill: '#fff'
+            });
+
+            // Create platforms group
+            platforms = this.physics.add.staticGroup();
+
+            // Ground platform
+            platforms.create(400, 568, 'platform').setScale(2).refreshBody();
+
+            // Floating platforms
+            platforms.create(600, 400, 'smallPlatform');
+            platforms.create(50, 250, 'smallPlatform');
+            platforms.create(750, 220, 'smallPlatform');
+
+            // Create the player
+            player = this.physics.add.sprite(100, 450, 'player');
+            player.setBounce(0.2);
+            player.setCollideWorldBounds(true);
+
+            // Create stars group
+            stars = this.physics.add.group({
+                key: 'star',
+                repeat: 11,
+                setXY: { x: 12, y: 0, stepX: 70 }
+            });
+
+            stars.children.iterate(function (child) {
+                child.setBounceY(PADDsync.Math.FloatBetween(0.4, 0.8));
+            });
+
+            // Create particle emitter
+            particles = this.add.particles('particle');
+
+            // Score text
+            scoreText = this.add.text(16, 40, 'Score: 0', {
+                fontSize: '24px',
+                fill: '#fff'
+            });
+
+            // Create keyboard input
+            cursors = this.input.keyboard.createCursorKeys();
+
+            // Add colliders
+            this.physics.add.collider(player, platforms);
+            this.physics.add.collider(stars, platforms);
+            this.physics.add.overlap(player, stars, collectStar, null, this);
+
+            // Mouse click creates particles
+            this.input.on('pointerdown', function (pointer) {
+                const emitter = particles.createEmitter({
+                    x: pointer.x,
+                    y: pointer.y,
+                    speed: { min: 200, max: 400 },
+                    angle: { min: 0, max: 360 },
+                    scale: { start: 1, end: 0 },
+                    lifespan: 600,
+                    quantity: 20,
+                    blendMode: 'ADD'
+                });
+
+                // Stop emitter after one burst
+                emitter.stop();
+            });
+
+            // Welcome text with fade out
+            const welcomeText = this.add.text(400, 300, 'PADDsync Game!', {
+                fontSize: '48px',
+                fill: '#fff',
+                stroke: '#000',
+                strokeThickness: 6
+            });
+            welcomeText.setOrigin(0.5);
+
+            this.tweens.add({
+                targets: welcomeText,
+                alpha: 0,
+                duration: 2000,
+                delay: 1000,
+                onComplete: function () {
+                    welcomeText.destroy();
+                }
+            });
+        }
+
+        function update() {
+            // Player movement
+            if (cursors.left.isDown) {
+                player.setVelocityX(-200);
+            } else if (cursors.right.isDown) {
+                player.setVelocityX(200);
+            } else {
+                player.setVelocityX(0);
+            }
+
+            // Jump
+            if ((cursors.up.isDown || cursors.space.isDown) && player.body.touching.down) {
+                player.setVelocityY(-500);
+            }
+        }
+
+        function collectStar(player, star) {
+            star.disableBody(true, true);
+
+            // Update score
+            score += 10;
+            scoreText.setText('Score: ' + score);
+
+            // Create particle burst at star location
+            const emitter = particles.createEmitter({
+                x: star.x,
+                y: star.y,
+                speed: { min: 100, max: 200 },
+                angle: { min: 0, max: 360 },
+                scale: { start: 0.8, end: 0 },
+                lifespan: 400,
+                quantity: 10,
+                blendMode: 'ADD'
+            });
+            emitter.stop();
+
+            // If all stars collected, respawn them
+            if (stars.countActive(true) === 0) {
+                stars.children.iterate(function (child) {
+                    child.enableBody(true, child.x, 0, true, true);
+                });
+
+                // Increase difficulty slightly
+                score += 50;
+                scoreText.setText('Score: ' + score);
+            }
+        }
+
+        // Log game info to console
+        console.log('PADDsync Game initialized!');
+        console.log('Version:', PADDsync.VERSION);
+        console.log('Renderer:', game.renderer.type === PADDsync.WEBGL ? 'WebGL' : 'Canvas');
+    </script>
+</body>
+</html>
